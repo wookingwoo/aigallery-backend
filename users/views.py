@@ -58,7 +58,22 @@ class UserViewSet(viewsets.ModelViewSet):
         
     @swagger_auto_schema(auto_schema=None)
     def create(self, request, *args, **kwargs):
-        """사용자 생성은 register 엔드포인트를 통해서만 가능하기 때문에 숨김 처리"""
+        """사용자 생성은 register 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def update(self, request, *args, **kwargs):
+        """사용자 정보 수정은 me 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def partial_update(self, request, *args, **kwargs):
+        """사용자 정보 부분 수정은 me 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def destroy(self, request, *args, **kwargs):
+        """특정 사용자 삭제 기능은 지원하지 않음"""
         pass
         
     @swagger_auto_schema(
@@ -111,17 +126,17 @@ class FriendshipViewSet(viewsets.ModelViewSet):
         
     @swagger_auto_schema(auto_schema=None)
     def create(self, request, *args, **kwargs):
-        """친구 관계 생성은 친구 요청 수락을 통해서만 가능하기 때문에 숨김 처리"""
+        """친구 관계 생성은 친구 요청 수락을 통해서만 가능하기 때문에 지원하지 않음"""
         pass
         
     @swagger_auto_schema(auto_schema=None)
     def update(self, request, *args, **kwargs):
-        """친구 관계는 수정할 수 없기 때문에 숨김 처리"""
+        """친구 관계는 수정할 수 없기 때문에 지원하지 않음"""
         pass
         
     @swagger_auto_schema(auto_schema=None)
     def partial_update(self, request, *args, **kwargs):
-        """친구 관계는 수정할 수 없기 때문에 숨김 처리"""
+        """친구 관계는 수정할 수 없기 때문에 지원하지 않음"""
         pass
         
 
@@ -189,12 +204,12 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         
     @swagger_auto_schema(auto_schema=None)
     def update(self, request, *args, **kwargs):
-        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 숨김 처리"""
+        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 지원하지 않음"""
         pass
         
     @swagger_auto_schema(auto_schema=None)
     def partial_update(self, request, *args, **kwargs):
-        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 숨김 처리"""
+        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 지원하지 않음"""
         pass
         
 
