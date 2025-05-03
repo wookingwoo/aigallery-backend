@@ -85,7 +85,15 @@ class UserViewSet(viewsets.ModelViewSet):
     )
     @swagger_auto_schema(
         methods=["put", "patch"],
-        operation_description="Update the current user's profile",
+        operation_description="""
+        현재 사용자의 프로필 정보를 업데이트합니다.
+        
+        이 API를 통해 현재 로그인한 사용자의 프로필 정보(이름, 프로필 이미지, 자기소개 등)를 수정할 수 있습니다.
+        
+        - 이메일 주소는 변경할 수 없습니다.
+        - 비밀번호 변경은 별도의 change_password API를 사용해야 합니다.
+        - 프로필 이미지는 multipart/form-data 형식으로 전송해야 합니다.
+        """,
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
