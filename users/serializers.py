@@ -63,3 +63,10 @@ class FriendshipSerializer(serializers.ModelSerializer):
         model = Friendship
         fields = ('id', 'friend', 'friend_details', 'created_at')
         read_only_fields = ('created_at',) 
+        
+class TokenObtainPairResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    
+class TokenRefreshResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()

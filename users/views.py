@@ -1,10 +1,10 @@
-from django.shortcuts import render
-from rest_framework import viewsets, status, generics, permissions
+from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .models import User, Friendship
-from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer
+from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
@@ -186,3 +186,41 @@ class FriendshipViewSet(viewsets.ModelViewSet):
 
         serializer = UserProfileSerializer(users, many=True)
         return Response(serializer.data)
+
+
+
+class DecoratedTokenObtainPairView(TokenObtainPairView):
+    @swagger_auto_schema(
+  operation_description="""
+        사용자의 아이디와 비밀번호를 입력받아 JWT Access Token과 Refresh Token을 발급합니다.
+
+        - **Access Token**: API 요청 시 인증에 사용합니다. 만료 시간이 짧습니다.
+        - **Refresh Token**: Access Token이 만료되었을 때 새로운 Access Token을 발급받는 데 사용합니다.
+
+        로그인에 성공하면 두 토큰을 모두 반환합니다.
+        """,
+        responses={
+            status.HTTP_200_OK: TokenObtainPairResponseSerializer,
+            status.HTTP_401_UNAUTHORIZED: "Invalid credentials"
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+    
+    
+class DecoratedTokenRefreshView(TokenRefreshView):
+    @swagger_auto_schema(
+        operation_description="""
+        Refresh Token을 입력받아 새로운 JWT Access Token을 발급합니다.
+
+        - **Refresh Token**이 유효할 경우, 새로운 Access Token을 반환합니다.
+        - 기존의 Refresh Token은 그대로 사용 가능합니다.
+        - Access Token이 만료되었을 때, 로그아웃 없이 인증 상태를 유지할 수 있습니다.
+        """,
+        responses={
+            status.HTTP_200_OK: TokenRefreshResponseSerializer,
+            status.HTTP_401_UNAUTHORIZED: "Invalid or expired token"
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
