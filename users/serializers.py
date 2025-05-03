@@ -45,6 +45,19 @@ class UserSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    """Serializer for password change."""
+    
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, validators=[validate_password])
+    
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("현재 비밀번호가 일치하지 않습니다.")
+        return value
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for user profiles."""
     

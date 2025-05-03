@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .models import User, Friendship, FriendRequest
-from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer, FriendRequestSerializer
+from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer, FriendRequestSerializer, ChangePasswordSerializer
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
@@ -54,6 +54,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["update", "partial_update", "me"]:
             return UserProfileSerializer
+        elif self.action == "change_password":
+            return ChangePasswordSerializer
         return UserSerializer
         
     @swagger_auto_schema(auto_schema=None)
@@ -112,6 +114,93 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    @swagger_auto_schema(
+        method="post",
+        operation_description="""
+        현재 비밀번호를 확인하고 새 비밀번호로 변경합니다.
+        
+        이 API를 통해 현재 로그인한 사용자의 비밀번호를 변경할 수 있습니다.
+        
+        - 현재 비밀번호를 정확히 입력해야 합니다.
+        - 새 비밀번호는 Django의 비밀번호 검증 규칙을 통과해야 합니다.
+        - 비밀번호 변경 후 기존 토큰은 계속 유효합니다.
+        """,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["old_password", "new_password"],
+            properties={
+                "old_password": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="현재 비밀번호"
+                ),
+                "new_password": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="새 비밀번호"
+                ),
+            },
+        ),
+        responses={
+            200: openapi.Response(
+                description="비밀번호가 성공적으로 변경됨",
+                examples={
+                    "application/json": {
+                        "detail": "Password changed successfully."
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="잘못된 요청",
+                examples={
+                    "application/json": {
+                        "old_password": ["현재 비밀번호가 일치하지 않습니다."]
+                    }
+                }
+            ),
+        },
+    )
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Change user's password."""
+        user = request.user
+        serializer = self.get_serializer(data=request.data)
+        
+        if serializer.is_valid():
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+            return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    @swagger_auto_schema(
+        method="post",
+        operation_description="""
+        현재 로그인한 사용자 계정을 비활성화(탈퇴)합니다.
+        
+        이 API를 통해 자신의 계정을 탈퇴할 수 있습니다.
+        
+        - 계정이 완전히 삭제되지는 않고 비활성화 상태로 변경됩니다.
+        - 계정 비활성화 후에는 로그인할 수 없습니다.
+        - 모든 친구 관계와 친구 요청은 유지됩니다.
+        """,
+        responses={
+            200: openapi.Response(
+                description="계정이 성공적으로 비활성화됨",
+                examples={
+                    "application/json": {
+                        "detail": "Account deactivated successfully."
+                    }
+                }
+            ),
+        },
+    )
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def deactivate(self, request):
+        """Deactivate user's account."""
+        user = request.user
+        user.is_active = False
+        user.save()
+        return Response({"detail": "Account deactivated successfully."}, status=status.HTTP_200_OK)
 
 
 class FriendshipViewSet(viewsets.ModelViewSet):
