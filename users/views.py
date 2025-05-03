@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .models import User, Friendship
-from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer
+from .models import User, Friendship, FriendRequest
+from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer, FriendRequestSerializer
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
@@ -55,7 +55,12 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ["update", "partial_update", "me"]:
             return UserProfileSerializer
         return UserSerializer
-
+        
+    @swagger_auto_schema(auto_schema=None)
+    def create(self, request, *args, **kwargs):
+        """사용자 생성은 register 엔드포인트를 통해서만 가능하기 때문에 숨김 처리"""
+        pass
+        
     @swagger_auto_schema(
         methods=["get"],
         operation_description="Retrieve the current user's profile",
@@ -103,42 +108,23 @@ class FriendshipViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return friendships for the current user."""
         return Friendship.objects.filter(user=self.request.user)
-
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["friend"],
-            properties={
-                "friend": openapi.Schema(
-                    type=openapi.TYPE_INTEGER,
-                    description="ID of the user to establish friendship with",
-                )
-            },
-        ),
-        responses={
-            201: FriendshipSerializer,
-            400: "Friendship already exists",
-            404: "User not found",
-        },
-    )
+        
+    @swagger_auto_schema(auto_schema=None)
     def create(self, request, *args, **kwargs):
-        """Create a new friendship."""
-        return super().create(request, *args, **kwargs)
+        """친구 관계 생성은 친구 요청 수락을 통해서만 가능하기 때문에 숨김 처리"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def update(self, request, *args, **kwargs):
+        """친구 관계는 수정할 수 없기 때문에 숨김 처리"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def partial_update(self, request, *args, **kwargs):
+        """친구 관계는 수정할 수 없기 때문에 숨김 처리"""
+        pass
+        
 
-    def perform_create(self, serializer):
-        """Create a new friendship."""
-        friend_id = self.request.data.get("friend")
-        friend = get_object_or_404(User, id=friend_id)
-
-        # Check if friendship already exists
-        if Friendship.objects.filter(user=self.request.user, friend=friend).exists():
-            return Response(
-                {"detail": "Friendship already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Create the friendship
-        serializer.save(user=self.request.user)
 
     @swagger_auto_schema(
         method="get",
@@ -187,6 +173,300 @@ class FriendshipViewSet(viewsets.ModelViewSet):
         serializer = UserProfileSerializer(users, many=True)
         return Response(serializer.data)
 
+
+class FriendRequestViewSet(viewsets.ModelViewSet):
+    """ViewSet for friend request management."""
+
+    serializer_class = FriendRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Return friend requests for the current user."""
+        user = self.request.user
+        return FriendRequest.objects.filter(
+            Q(sender=user) | Q(receiver=user)
+        )
+        
+    @swagger_auto_schema(auto_schema=None)
+    def update(self, request, *args, **kwargs):
+        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 숨김 처리"""
+        pass
+        
+    @swagger_auto_schema(auto_schema=None)
+    def partial_update(self, request, *args, **kwargs):
+        """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 숨김 처리"""
+        pass
+        
+
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["receiver"],
+            properties={
+                "receiver": openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description="ID of the user to send friend request to",
+                )
+            },
+        ),
+        operation_description="""
+        다른 사용자에게 친구 요청을 보냅니다.
+        
+        이 API를 통해 다른 사용자에게 친구 요청을 보낼 수 있습니다. 상대방이 요청을 수락하면 양쪽 모두 친구 관계가 성립됩니다.
+        
+        - 자기 자신에게는 친구 요청을 보낼 수 없습니다.
+        - 이미 친구인 사용자에게는 요청을 보낼 수 없습니다.
+        - 이미 요청을 보낸 사용자에게는 중복 요청을 보낼 수 없습니다.
+        - 상대방이 먼저 나에게 친구 요청을 보낸 상태라면, 이 API를 호출하면 자동으로 상대방의 요청이 수락됩니다.
+        """,
+        responses={
+            201: openapi.Response(
+                description="친구 요청이 성공적으로 생성됨",
+                schema=FriendRequestSerializer
+            ),
+            400: openapi.Response(
+                description="잘못된 요청",
+                examples={
+                    "application/json": {
+                        "detail": "Cannot send friend request to yourself."
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description="사용자를 찾을 수 없음"
+            ),
+        },
+    )
+    def create(self, request, *args, **kwargs):
+        """Create a new friend request."""
+        receiver_id = request.data.get("receiver")
+        receiver = get_object_or_404(User, id=receiver_id)
+        
+        # Don't allow sending friend request to self
+        if receiver == request.user:
+            return Response(
+                {"detail": "Cannot send friend request to yourself."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        # Check if friendship already exists
+        if Friendship.objects.filter(user=request.user, friend=receiver).exists():
+            return Response(
+                {"detail": "Friendship already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        # Check if there's already a pending request
+        existing_request = FriendRequest.objects.filter(
+            sender=request.user, 
+            receiver=receiver,
+            status='pending'
+        ).first()
+        
+        if existing_request:
+            return Response(
+                {"detail": "Friend request already sent."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        # Check if there's a pending request from the receiver to the sender
+        reverse_request = FriendRequest.objects.filter(
+            sender=receiver,
+            receiver=request.user,
+            status='pending'
+        ).first()
+        
+        if reverse_request:
+            # Auto-accept the reverse request
+            reverse_request.accept()
+            return Response(
+                {"detail": "Request from the user was automatically accepted."},
+                status=status.HTTP_201_CREATED
+            )
+            
+        # Create new friend request
+        friend_request = FriendRequest.objects.create(
+            sender=request.user,
+            receiver=receiver,
+            status='pending'
+        )
+        
+        serializer = self.get_serializer(friend_request)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+    @swagger_auto_schema(
+        method="post",
+        operation_description="""
+        받은 친구 요청을 수락합니다.
+        
+        이 API를 통해 다른 사용자로부터 받은 친구 요청을 수락할 수 있습니다. 
+        요청을 수락하면 양방향 친구 관계가 생성됩니다.
+        
+        - 요청을 받은 사용자만 수락할 수 있습니다.
+        - 이미 처리된(수락/거절) 요청은 다시 수락할 수 없습니다.
+        - 요청이 수락되면 양방향 친구 관계가 자동으로 생성됩니다.
+        """,
+        responses={
+            200: openapi.Response(
+                description="친구 요청이 성공적으로 수락됨",
+                examples={
+                    "application/json": {
+                        "detail": "Friend request accepted."
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="잘못된 요청",
+                examples={
+                    "application/json": {
+                        "detail": "You can only accept friend requests sent to you."
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description="친구 요청을 찾을 수 없음"
+            ),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        """Accept a friend request."""
+        friend_request = self.get_object()
+        
+        # Check if the current user is the receiver
+        if friend_request.receiver != request.user:
+            return Response(
+                {"detail": "You can only accept friend requests sent to you."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        # Check if the request is still pending
+        if friend_request.status != 'pending':
+            return Response(
+                {"detail": f"This friend request is already {friend_request.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        friend_request.accept()
+        
+        return Response({"detail": "Friend request accepted."})
+        
+    @swagger_auto_schema(
+        method="post",
+        operation_description="""
+        받은 친구 요청을 거절합니다.
+        
+        이 API를 통해 다른 사용자로부터 받은 친구 요청을 거절할 수 있습니다.
+        
+        - 요청을 받은 사용자만 거절할 수 있습니다.
+        - 이미 처리된(수락/거절) 요청은 다시 거절할 수 없습니다.
+        - 거절된 요청은 다시 수락할 수 없습니다.
+        """,
+        responses={
+            200: openapi.Response(
+                description="친구 요청이 성공적으로 거절됨",
+                examples={
+                    "application/json": {
+                        "detail": "Friend request rejected."
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="잘못된 요청",
+                examples={
+                    "application/json": {
+                        "detail": "You can only reject friend requests sent to you."
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description="친구 요청을 찾을 수 없음"
+            ),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Reject a friend request."""
+        friend_request = self.get_object()
+        
+        # Check if the current user is the receiver
+        if friend_request.receiver != request.user:
+            return Response(
+                {"detail": "You can only reject friend requests sent to you."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        # Check if the request is still pending
+        if friend_request.status != 'pending':
+            return Response(
+                {"detail": f"This friend request is already {friend_request.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        friend_request.reject()
+        
+        return Response({"detail": "Friend request rejected."})
+    
+    @swagger_auto_schema(
+        method="get",
+        operation_description="""
+        현재 사용자가 받은 모든 친구 요청을 조회합니다.
+        
+        이 API를 통해 다른 사용자로부터 받은 모든 친구 요청 목록을 확인할 수 있습니다.
+        상태(pending/accepted/rejected)에 상관없이 모든 요청이 반환됩니다.
+        
+        반환되는 정보에는 요청 발신자의 상세 정보(이메일, 이름, 프로필 이미지 등)도 포함됩니다.
+        """,
+        responses={
+            200: openapi.Response(
+                description="받은 친구 요청 목록",
+                schema=FriendRequestSerializer(many=True)
+            ),
+        },
+    )
+    @action(detail=False, methods=["get"])
+    def received(self, request):
+        """List received friend requests."""
+        friend_requests = FriendRequest.objects.filter(receiver=request.user)
+        
+        page = self.paginate_queryset(friend_requests)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(friend_requests, many=True)
+        return Response(serializer.data)
+    
+    @swagger_auto_schema(
+        method="get",
+        operation_description="""
+        현재 사용자가 보낸 모든 친구 요청을 조회합니다.
+        
+        이 API를 통해 현재 사용자가 다른 사용자에게 보낸 모든 친구 요청 목록을 확인할 수 있습니다.
+        상태(pending/accepted/rejected)에 상관없이 모든 요청이 반환됩니다.
+        
+        반환되는 정보에는 요청 수신자의 상세 정보(이메일, 이름, 프로필 이미지 등)도 포함됩니다.
+        """,
+        responses={
+            200: openapi.Response(
+                description="보낸 친구 요청 목록",
+                schema=FriendRequestSerializer(many=True)
+            ),
+        },
+    )
+    @action(detail=False, methods=["get"])
+    def sent(self, request):
+        """List sent friend requests."""
+        friend_requests = FriendRequest.objects.filter(sender=request.user)
+        
+        page = self.paginate_queryset(friend_requests)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(friend_requests, many=True)
+        return Response(serializer.data)
 
 
 class DecoratedTokenObtainPairView(TokenObtainPairView):

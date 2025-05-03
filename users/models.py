@@ -66,3 +66,40 @@ class Friendship(models.Model):
     
     def __str__(self):
         return f"{self.user.email} is friends with {self.friend.email}"
+
+
+class FriendRequest(models.Model):
+    """Model representing friend requests between users."""
+    
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    )
+    
+    sender = models.ForeignKey(User, related_name='sent_friend_requests', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='received_friend_requests', on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('sender', 'receiver')
+    
+    def __str__(self):
+        return f"{self.sender.email} -> {self.receiver.email} ({self.status})"
+    
+    def accept(self):
+        """Accept friend request and create friendship."""
+        if self.status == 'pending':
+            # Create bi-directional friendship
+            Friendship.objects.create(user=self.sender, friend=self.receiver)
+            Friendship.objects.create(user=self.receiver, friend=self.sender)
+            self.status = 'accepted'
+            self.save()
+    
+    def reject(self):
+        """Reject friend request."""
+        if self.status == 'pending':
+            self.status = 'rejected'
+            self.save()

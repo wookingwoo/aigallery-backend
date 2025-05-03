@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import Friendship
+from .models import Friendship, FriendRequest
 
 User = get_user_model()
 
@@ -63,7 +63,20 @@ class FriendshipSerializer(serializers.ModelSerializer):
         model = Friendship
         fields = ('id', 'friend', 'friend_details', 'created_at')
         read_only_fields = ('created_at',) 
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    """Serializer for friend requests."""
+    
+    sender_details = UserProfileSerializer(source='sender', read_only=True)
+    receiver_details = UserProfileSerializer(source='receiver', read_only=True)
+    
+    class Meta:
+        model = FriendRequest
+        fields = ('id', 'sender', 'receiver', 'sender_details', 'receiver_details', 'status', 'created_at', 'updated_at')
+        read_only_fields = ('sender', 'status', 'created_at', 'updated_at')
         
+
 class TokenObtainPairResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
     refresh = serializers.CharField()

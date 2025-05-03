@@ -175,7 +175,7 @@ SWAGGER_SETTINGS = {
     "USE_SESSION_AUTH": False,
     "SUPPORTED_SUBMIT_METHODS": ["get", "post", "put", "delete", "patch"],
     "DEFAULT_MODEL_RENDERING": "example",
-    "OPERATIONS_SORTER": "method",
+    # "OPERATIONS_SORTER": "method",
     "VALIDATOR_URL": None,
     "DEEP_LINKING": True,
 }
