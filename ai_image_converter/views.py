@@ -11,6 +11,7 @@ from django.db.models import Q
 import threading
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.core.exceptions import ValidationError
 
 
 class CartoonImageViewSet(
@@ -25,6 +26,8 @@ class CartoonImageViewSet(
 
     사용자가 업로드한 이미지를 AI 기반 기술을 사용하여 만화 캐릭터 스타일로 변환합니다.
     변환 과정은 비동기적으로 처리되며, 사용자는 변환 상태를 확인할 수 있습니다.
+
+    이미지 변환 시 사용자의 크레딧이 1개 차감됩니다.
     """
 
     permission_classes = [IsAuthenticated]
@@ -90,6 +93,8 @@ class CartoonImageViewSet(
         사용자가 원본 이미지를 업로드하면 비동기적으로 이미지 변환이 시작됩니다.
         변환 프로세스는 백그라운드에서 실행되며, 변환이 완료될 때까지 상태는 'pending'에서 'processing'을 거쳐 'completed'로 변경됩니다.
         변환 중 오류가 발생하면 상태는 'failed'로 설정됩니다.
+        
+        이미지 변환 시 사용자의 크레딧이 1개 차감됩니다. 크레딧이 부족한 경우 오류가 반환됩니다.
         """,
         request_body=CartoonImageCreateSerializer,
         manual_parameters=[
@@ -137,10 +142,11 @@ class CartoonImageViewSet(
                 },
             ),
             400: openapi.Response(
-                description="잘못된 요청",
+                description="잘못된 요청 또는 크레딧 부족",
                 examples={
                     "application/json": {
-                        "original_image": ["이 필드는 필수 항목입니다."]
+                        "error": "크레딧이 부족합니다. 크레딧을 충전하신 후 다시 시도해주세요.",
+                        "current_credits": 0,
                     }
                 },
             ),
@@ -149,7 +155,29 @@ class CartoonImageViewSet(
         tags=["ai 이미지 변환"],
     )
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+        # 사용자 크레딧 확인
+        user = request.user
+        if user.credits < 1:
+            return Response(
+                {
+                    "error": "크레딧이 부족합니다. 크레딧을 충전하신 후 다시 시도해주세요.",
+                    "current_credits": user.credits,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 크레딧을 차감하고 이미지 변환 처리 진행
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        # 크레딧 사용
+        user.use_credit(amount=1, reason="AI 이미지 변환")
+
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def perform_create(self, serializer):
         """Save the user and start the conversion process"""
@@ -222,6 +250,8 @@ class CartoonImageViewSet(
         이미 변환된 이미지가 있더라도 다시 변환 작업을 수행합니다.
         상태는 다시 'processing'으로 변경되고, 변환이 완료되면 'completed'로 업데이트됩니다.
         동일한 원본 이미지와 프롬프트를 사용하지만 다른 결과를 얻을 수 있습니다.
+        
+        재변환 시에도 사용자의 크레딧이 1개 차감됩니다. 크레딧이 부족한 경우 오류가 반환됩니다.
         """,
         responses={
             202: openapi.Response(
@@ -238,6 +268,15 @@ class CartoonImageViewSet(
                 ),
                 examples={"application/json": {"status": "conversion started"}},
             ),
+            400: openapi.Response(
+                description="크레딧 부족",
+                examples={
+                    "application/json": {
+                        "error": "크레딧이 부족합니다. 크레딧을 충전하신 후 다시 시도해주세요.",
+                        "current_credits": 0,
+                    }
+                },
+            ),
             404: openapi.Response(
                 description="존재하지 않는 이미지",
                 examples={"application/json": {"detail": "찾을 수 없습니다."}},
@@ -249,7 +288,22 @@ class CartoonImageViewSet(
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
         """Regenerate the cartoon image"""
-        image = get_object_or_404(CartoonImage, id=pk, user=request.user)
+        user = request.user
+
+        # 크레딧 확인
+        if user.credits < 1:
+            return Response(
+                {
+                    "error": "크레딧이 부족합니다. 크레딧을 충전하신 후 다시 시도해주세요.",
+                    "current_credits": user.credits,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        image = get_object_or_404(CartoonImage, id=pk, user=user)
+
+        # 크레딧 사용
+        user.use_credit(amount=1, reason="AI 이미지 재변환")
 
         # Start conversion in background thread
         thread = threading.Thread(target=convert_to_cartoon, args=(image,))

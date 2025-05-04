@@ -3,12 +3,25 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .models import User, Friendship, FriendRequest
-from .serializers import UserSerializer, UserProfileSerializer, FriendshipSerializer, TokenObtainPairResponseSerializer, TokenRefreshResponseSerializer, FriendRequestSerializer, ChangePasswordSerializer
+from .models import User, Friendship, FriendRequest, CreditUsage
+from .serializers import (
+    UserSerializer,
+    UserProfileSerializer,
+    FriendshipSerializer,
+    TokenObtainPairResponseSerializer,
+    TokenRefreshResponseSerializer,
+    FriendRequestSerializer,
+    ChangePasswordSerializer,
+    CreditUsageSerializer,
+    CreditChargeSerializer,
+    CustomTokenObtainPairSerializer,
+)
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 @swagger_auto_schema(
@@ -57,27 +70,27 @@ class UserViewSet(viewsets.ModelViewSet):
         elif self.action == "change_password":
             return ChangePasswordSerializer
         return UserSerializer
-        
+
     @swagger_auto_schema(auto_schema=None)
     def create(self, request, *args, **kwargs):
         """사용자 생성은 register 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def update(self, request, *args, **kwargs):
         """사용자 정보 수정은 me 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def partial_update(self, request, *args, **kwargs):
         """사용자 정보 부분 수정은 me 엔드포인트를 통해서만 가능하기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def destroy(self, request, *args, **kwargs):
         """특정 사용자 삭제 기능은 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(
         methods=["get"],
         operation_description="Retrieve the current user's profile",
@@ -122,7 +135,7 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
     @swagger_auto_schema(
         method="post",
         operation_description="""
@@ -139,12 +152,10 @@ class UserViewSet(viewsets.ModelViewSet):
             required=["old_password", "new_password"],
             properties={
                 "old_password": openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="현재 비밀번호"
+                    type=openapi.TYPE_STRING, description="현재 비밀번호"
                 ),
                 "new_password": openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="새 비밀번호"
+                    type=openapi.TYPE_STRING, description="새 비밀번호"
                 ),
             },
         ),
@@ -152,10 +163,8 @@ class UserViewSet(viewsets.ModelViewSet):
             200: openapi.Response(
                 description="비밀번호가 성공적으로 변경됨",
                 examples={
-                    "application/json": {
-                        "detail": "Password changed successfully."
-                    }
-                }
+                    "application/json": {"detail": "Password changed successfully."}
+                },
             ),
             400: openapi.Response(
                 description="잘못된 요청",
@@ -163,7 +172,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     "application/json": {
                         "old_password": ["현재 비밀번호가 일치하지 않습니다."]
                     }
-                }
+                },
             ),
         },
     )
@@ -172,14 +181,16 @@ class UserViewSet(viewsets.ModelViewSet):
         """Change user's password."""
         user = request.user
         serializer = self.get_serializer(data=request.data)
-        
+
         if serializer.is_valid():
             user.set_password(serializer.validated_data["new_password"])
             user.save()
-            return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)
-        
+            return Response(
+                {"detail": "Password changed successfully."}, status=status.HTTP_200_OK
+            )
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
     @swagger_auto_schema(
         method="post",
         operation_description="""
@@ -195,10 +206,8 @@ class UserViewSet(viewsets.ModelViewSet):
             200: openapi.Response(
                 description="계정이 성공적으로 비활성화됨",
                 examples={
-                    "application/json": {
-                        "detail": "Account deactivated successfully."
-                    }
-                }
+                    "application/json": {"detail": "Account deactivated successfully."}
+                },
             ),
         },
     )
@@ -208,7 +217,9 @@ class UserViewSet(viewsets.ModelViewSet):
         user = request.user
         user.is_active = False
         user.save()
-        return Response({"detail": "Account deactivated successfully."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Account deactivated successfully."}, status=status.HTTP_200_OK
+        )
 
 
 class FriendshipViewSet(viewsets.ModelViewSet):
@@ -220,23 +231,21 @@ class FriendshipViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return friendships for the current user."""
         return Friendship.objects.filter(user=self.request.user)
-        
+
     @swagger_auto_schema(auto_schema=None)
     def create(self, request, *args, **kwargs):
         """친구 관계 생성은 친구 요청 수락을 통해서만 가능하기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def update(self, request, *args, **kwargs):
         """친구 관계는 수정할 수 없기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def partial_update(self, request, *args, **kwargs):
         """친구 관계는 수정할 수 없기 때문에 지원하지 않음"""
         pass
-        
-
 
     @swagger_auto_schema(
         method="get",
@@ -295,21 +304,17 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return friend requests for the current user."""
         user = self.request.user
-        return FriendRequest.objects.filter(
-            Q(sender=user) | Q(receiver=user)
-        )
-        
+        return FriendRequest.objects.filter(Q(sender=user) | Q(receiver=user))
+
     @swagger_auto_schema(auto_schema=None)
     def update(self, request, *args, **kwargs):
         """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 지원하지 않음"""
         pass
-        
+
     @swagger_auto_schema(auto_schema=None)
     def partial_update(self, request, *args, **kwargs):
         """친구 요청은 accept/reject 메서드를 통해서만 수정 가능하기 때문에 지원하지 않음"""
         pass
-        
-
 
     @swagger_auto_schema(
         request_body=openapi.Schema(
@@ -335,7 +340,7 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         responses={
             201: openapi.Response(
                 description="친구 요청이 성공적으로 생성됨",
-                schema=FriendRequestSerializer
+                schema=FriendRequestSerializer,
             ),
             400: openapi.Response(
                 description="잘못된 요청",
@@ -343,70 +348,62 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
                     "application/json": {
                         "detail": "Cannot send friend request to yourself."
                     }
-                }
+                },
             ),
-            404: openapi.Response(
-                description="사용자를 찾을 수 없음"
-            ),
+            404: openapi.Response(description="사용자를 찾을 수 없음"),
         },
     )
     def create(self, request, *args, **kwargs):
         """Create a new friend request."""
         receiver_id = request.data.get("receiver")
         receiver = get_object_or_404(User, id=receiver_id)
-        
+
         # Don't allow sending friend request to self
         if receiver == request.user:
             return Response(
                 {"detail": "Cannot send friend request to yourself."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         # Check if friendship already exists
         if Friendship.objects.filter(user=request.user, friend=receiver).exists():
             return Response(
                 {"detail": "Friendship already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         # Check if there's already a pending request
         existing_request = FriendRequest.objects.filter(
-            sender=request.user, 
-            receiver=receiver,
-            status='pending'
+            sender=request.user, receiver=receiver, status="pending"
         ).first()
-        
+
         if existing_request:
             return Response(
                 {"detail": "Friend request already sent."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         # Check if there's a pending request from the receiver to the sender
         reverse_request = FriendRequest.objects.filter(
-            sender=receiver,
-            receiver=request.user,
-            status='pending'
+            sender=receiver, receiver=request.user, status="pending"
         ).first()
-        
+
         if reverse_request:
             # Auto-accept the reverse request
             reverse_request.accept()
             return Response(
                 {"detail": "Request from the user was automatically accepted."},
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
-            
+
         # Create new friend request
         friend_request = FriendRequest.objects.create(
-            sender=request.user,
-            receiver=receiver,
-            status='pending'
+            sender=request.user, receiver=receiver, status="pending"
         )
-        
+
         serializer = self.get_serializer(friend_request)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+
     @swagger_auto_schema(
         method="post",
         operation_description="""
@@ -422,11 +419,7 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         responses={
             200: openapi.Response(
                 description="친구 요청이 성공적으로 수락됨",
-                examples={
-                    "application/json": {
-                        "detail": "Friend request accepted."
-                    }
-                }
+                examples={"application/json": {"detail": "Friend request accepted."}},
             ),
             400: openapi.Response(
                 description="잘못된 요청",
@@ -434,36 +427,34 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
                     "application/json": {
                         "detail": "You can only accept friend requests sent to you."
                     }
-                }
+                },
             ),
-            404: openapi.Response(
-                description="친구 요청을 찾을 수 없음"
-            ),
+            404: openapi.Response(description="친구 요청을 찾을 수 없음"),
         },
     )
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
         """Accept a friend request."""
         friend_request = self.get_object()
-        
+
         # Check if the current user is the receiver
         if friend_request.receiver != request.user:
             return Response(
                 {"detail": "You can only accept friend requests sent to you."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         # Check if the request is still pending
-        if friend_request.status != 'pending':
+        if friend_request.status != "pending":
             return Response(
                 {"detail": f"This friend request is already {friend_request.status}."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         friend_request.accept()
-        
+
         return Response({"detail": "Friend request accepted."})
-        
+
     @swagger_auto_schema(
         method="post",
         operation_description="""
@@ -478,11 +469,7 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         responses={
             200: openapi.Response(
                 description="친구 요청이 성공적으로 거절됨",
-                examples={
-                    "application/json": {
-                        "detail": "Friend request rejected."
-                    }
-                }
+                examples={"application/json": {"detail": "Friend request rejected."}},
             ),
             400: openapi.Response(
                 description="잘못된 요청",
@@ -490,36 +477,34 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
                     "application/json": {
                         "detail": "You can only reject friend requests sent to you."
                     }
-                }
+                },
             ),
-            404: openapi.Response(
-                description="친구 요청을 찾을 수 없음"
-            ),
+            404: openapi.Response(description="친구 요청을 찾을 수 없음"),
         },
     )
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         """Reject a friend request."""
         friend_request = self.get_object()
-        
+
         # Check if the current user is the receiver
         if friend_request.receiver != request.user:
             return Response(
                 {"detail": "You can only reject friend requests sent to you."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         # Check if the request is still pending
-        if friend_request.status != 'pending':
+        if friend_request.status != "pending":
             return Response(
                 {"detail": f"This friend request is already {friend_request.status}."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         friend_request.reject()
-        
+
         return Response({"detail": "Friend request rejected."})
-    
+
     @swagger_auto_schema(
         method="get",
         operation_description="""
@@ -533,7 +518,7 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         responses={
             200: openapi.Response(
                 description="받은 친구 요청 목록",
-                schema=FriendRequestSerializer(many=True)
+                schema=FriendRequestSerializer(many=True),
             ),
         },
     )
@@ -541,15 +526,15 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
     def received(self, request):
         """List received friend requests."""
         friend_requests = FriendRequest.objects.filter(receiver=request.user)
-        
+
         page = self.paginate_queryset(friend_requests)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-            
+
         serializer = self.get_serializer(friend_requests, many=True)
         return Response(serializer.data)
-    
+
     @swagger_auto_schema(
         method="get",
         operation_description="""
@@ -563,7 +548,7 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         responses={
             200: openapi.Response(
                 description="보낸 친구 요청 목록",
-                schema=FriendRequestSerializer(many=True)
+                schema=FriendRequestSerializer(many=True),
             ),
         },
     )
@@ -571,19 +556,21 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
     def sent(self, request):
         """List sent friend requests."""
         friend_requests = FriendRequest.objects.filter(sender=request.user)
-        
+
         page = self.paginate_queryset(friend_requests)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-            
+
         serializer = self.get_serializer(friend_requests, many=True)
         return Response(serializer.data)
 
 
 class DecoratedTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
     @swagger_auto_schema(
-  operation_description="""
+        operation_description="""
         사용자의 아이디와 비밀번호를 입력받아 JWT Access Token과 Refresh Token을 발급합니다.
 
         - **Access Token**: API 요청 시 인증에 사용합니다. 만료 시간이 짧습니다.
@@ -593,13 +580,13 @@ class DecoratedTokenObtainPairView(TokenObtainPairView):
         """,
         responses={
             status.HTTP_200_OK: TokenObtainPairResponseSerializer,
-            status.HTTP_401_UNAUTHORIZED: "Invalid credentials"
-        }
+            status.HTTP_401_UNAUTHORIZED: "Invalid credentials",
+        },
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
-    
-    
+
+
 class DecoratedTokenRefreshView(TokenRefreshView):
     @swagger_auto_schema(
         operation_description="""
@@ -611,8 +598,150 @@ class DecoratedTokenRefreshView(TokenRefreshView):
         """,
         responses={
             status.HTTP_200_OK: TokenRefreshResponseSerializer,
-            status.HTTP_401_UNAUTHORIZED: "Invalid or expired token"
-        }
+            status.HTTP_401_UNAUTHORIZED: "Invalid or expired token",
+        },
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
+
+class LogoutView(APIView):
+    """Logout view that blacklists the refresh token"""
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class CreditUsageListView(generics.ListAPIView):
+    """
+    사용자의 크레딧 사용 내역을 조회하는 API
+
+    사용자의 크레딧 충전 및 사용 내역을 최신순으로 보여줍니다.
+    """
+
+    serializer_class = CreditUsageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """사용자의 크레딧 사용 내역 반환"""
+        return CreditUsage.objects.filter(user=self.request.user).order_by(
+            "-created_at"
+        )
+
+    @swagger_auto_schema(
+        operation_description="사용자의 크레딧 사용 내역을 최신순으로 반환합니다.",
+        responses={
+            200: openapi.Response(
+                description="크레딧 사용 내역 목록",
+                schema=CreditUsageSerializer(many=True),
+            ),
+            401: "인증되지 않은 사용자",
+        },
+        tags=["크레딧 관리"],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class CreditInfoView(APIView):
+    """
+    사용자의 현재 크레딧 정보를 조회하는 API
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="사용자의 현재 크레딧 정보를 반환합니다.",
+        responses={
+            200: openapi.Response(
+                description="크레딧 정보",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "credits": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            description="현재 보유한 크레딧 수",
+                        )
+                    },
+                ),
+                examples={"application/json": {"credits": 10}},
+            ),
+            401: "인증되지 않은 사용자",
+        },
+        tags=["크레딧 관리"],
+    )
+    def get(self, request):
+        """사용자의 현재 크레딧 정보 반환"""
+        return Response({"credits": request.user.credits})
+
+
+class CreditChargeView(APIView):
+    """
+    크레딧 충전 API
+
+    사용자가 크레딧을 충전할 수 있는 API입니다.
+    실제 결제 처리는 구현되어 있지 않으며, 테스트 목적으로 즉시 크레딧이 추가됩니다.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="크레딧을 충전합니다. 실제 결제 처리는 구현되어 있지 않으며, 테스트 목적으로 즉시 크레딧이 추가됩니다.",
+        request_body=CreditChargeSerializer,
+        responses={
+            200: openapi.Response(
+                description="충전 성공",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(
+                            type=openapi.TYPE_STRING, description="결과 메시지"
+                        ),
+                        "amount": openapi.Schema(
+                            type=openapi.TYPE_INTEGER, description="충전된 크레딧 수"
+                        ),
+                        "total_credits": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            description="충전 후 총 크레딧 수",
+                        ),
+                    },
+                ),
+                examples={
+                    "application/json": {
+                        "message": "크레딧이 성공적으로 충전되었습니다.",
+                        "amount": 10,
+                        "total_credits": 20,
+                    }
+                },
+            ),
+            400: "잘못된 요청",
+            401: "인증되지 않은 사용자",
+        },
+        tags=["크레딧 관리"],
+    )
+    def post(self, request):
+        """크레딧 충전 처리"""
+        serializer = CreditChargeSerializer(
+            data=request.data, context={"request": request}
+        )
+
+        if serializer.is_valid():
+            result = serializer.save()
+
+            return Response(
+                {
+                    "message": "크레딧이 성공적으로 충전되었습니다.",
+                    "amount": result["amount"],
+                    "total_credits": request.user.credits,
+                }
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
