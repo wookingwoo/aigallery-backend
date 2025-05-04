@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status, permissions, parsers
+from rest_framework import viewsets, status, permissions, parsers, pagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
@@ -48,6 +48,14 @@ class VisibilityPermission(permissions.BasePermission):
         return False
 
 
+class CustomPagination(pagination.PageNumberPagination):
+    """Custom pagination class for images."""
+
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class ImageViewSet(viewsets.ModelViewSet):
     """ViewSet for handling image operations."""
 
@@ -58,6 +66,7 @@ class ImageViewSet(viewsets.ModelViewSet):
         VisibilityPermission,
     ]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         """
@@ -132,6 +141,25 @@ class ImageViewSet(viewsets.ModelViewSet):
         """Set the user when creating an image."""
         serializer.save(user=self.request.user)
 
+    @swagger_auto_schema(
+        operation_description="현재 사용자의 이미지를 조회합니다.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="page",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지 번호",
+            ),
+            openapi.Parameter(
+                name="page_size",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지당 항목 수 (최대 100)",
+            ),
+        ],
+    )
     @action(detail=False, methods=["get"])
     def my_images(self, request):
         """Retrieve only the authenticated user's images."""
@@ -148,6 +176,25 @@ class ImageViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_description="친구들의 이미지를 조회합니다.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="page",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지 번호",
+            ),
+            openapi.Parameter(
+                name="page_size",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지당 항목 수 (최대 100)",
+            ),
+        ],
+    )
     @action(detail=False, methods=["get"])
     def friend_images(self, request):
         """Retrieve images from friends."""
@@ -173,12 +220,36 @@ class ImageViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_description="모든 공개 이미지를 조회합니다.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="page",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지 번호",
+            ),
+            openapi.Parameter(
+                name="page_size",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지당 항목 수 (최대 100)",
+            ),
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        """List all images visible to the user with pagination."""
+        return super().list(request, *args, **kwargs)
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     """ViewSet for handling comments."""
 
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         """Return comments for images the user can see."""
@@ -211,6 +282,29 @@ class CommentViewSet(viewsets.ModelViewSet):
 
         serializer.save(user=self.request.user)
 
+    @swagger_auto_schema(
+        operation_description="이미지에 대한 댓글을 조회합니다.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="page",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지 번호",
+            ),
+            openapi.Parameter(
+                name="page_size",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지당 항목 수 (최대 100)",
+            ),
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        """List all comments visible to the user with pagination."""
+        return super().list(request, *args, **kwargs)
+
 
 class LikeViewSet(viewsets.ModelViewSet):
     """ViewSet for handling likes."""
@@ -218,6 +312,7 @@ class LikeViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "delete"]  # patch 메서드 사용 안함
     serializer_class = LikeSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         """Return likes for the user."""
@@ -235,6 +330,29 @@ class LikeViewSet(viewsets.ModelViewSet):
             | Q(user=user)
             | Q(user_id__in=friend_ids, visibility="friends")
         )
+
+    @swagger_auto_schema(
+        operation_description="사용자의 좋아요 목록을 조회합니다.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="page",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지 번호",
+            ),
+            openapi.Parameter(
+                name="page_size",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="페이지당 항목 수 (최대 100)",
+            ),
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        """List all likes for the user with pagination."""
+        return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         """Create a like if it doesn't exist already."""
