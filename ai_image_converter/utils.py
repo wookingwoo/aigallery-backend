@@ -1,19 +1,15 @@
 import os
-from django.conf import settings
 from django.core.files.base import ContentFile
-from PIL import Image
-import io
 import logging
+import base64
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
 
 def convert_to_ai_image(image_instance):
     """
-    Convert an image using AI.
-
-    This is a placeholder function that will be replaced with actual AI implementation.
-    For now, it simply returns the original image as a placeholder.
+    Convert an image using OpenAI's image editing API.
 
     Args:
         image_instance: AIImage instance containing the original image
@@ -29,17 +25,26 @@ def convert_to_ai_image(image_instance):
         # Get original image path
         original_image_path = image_instance.original_image.path
 
-        # Read original image
-        img = Image.open(original_image_path)
+        # Get API key from environment variables
+        api_key = os.environ.get("OPENAI_API_KEY")
+        client = OpenAI(api_key=api_key)
 
-        # PLACEHOLDER: Here is where the actual AI conversion would happen
-        # In a real implementation, this would call an AI service or local model
-        # ai_img = ai_convert_image(img, image_instance.prompt, image_instance.model_used)
-        ai_img = img  # For now, just use the original image as placeholder
+        # Get the prompt from the image instance
+        ghibli_prompt = "Turn this photo into studio ghibli style art with vibrant colors, dream-like landscapes and that signature Miyazaki charm."
+        prompt = image_instance.prompt or ghibli_prompt
 
-        # Save the processed image
-        buffer = io.BytesIO()
-        ai_img.save(buffer, format="PNG")
+        # Call OpenAI API to convert the image
+        result = client.images.edit(
+            model="gpt-image-1",
+            image=[
+                open(original_image_path, "rb"),
+            ],
+            prompt=prompt,
+        )
+
+        # Get the base64 image data and decode it
+        image_base64 = result.data[0].b64_json
+        image_bytes = base64.b64decode(image_base64)
 
         # Create a unique filename for the converted image
         filename = os.path.basename(image_instance.original_image.name)
@@ -48,7 +53,7 @@ def convert_to_ai_image(image_instance):
 
         # Save the converted image to the model
         image_instance.converted_image.save(
-            converted_filename, ContentFile(buffer.getvalue()), save=False
+            converted_filename, ContentFile(image_bytes), save=False
         )
 
         # Update status to completed
