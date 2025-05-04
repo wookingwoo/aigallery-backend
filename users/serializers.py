@@ -42,11 +42,12 @@ class UserSerializer(serializers.ModelSerializer):
             "credits",
         )
         extra_kwargs = {
+            "email": {"required": True},
             "first_name": {"required": True},
             "last_name": {"required": True},
             "password": {"write_only": True},
         }
-        read_only_fields = ["id", "email", "credits"]
+        read_only_fields = ["id", "credits"]
 
     def create(self, validated_data):
         user = User.objects.create_user(

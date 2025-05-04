@@ -22,6 +22,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import parsers
 
 
 @swagger_auto_schema(
@@ -30,25 +31,66 @@ from rest_framework_simplejwt.tokens import RefreshToken
         required=["email", "first_name", "last_name", "password"],
         properties={
             "email": openapi.Schema(
-                type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_EMAIL,
+                description="사용자 이메일 주소 (로그인 ID로 사용됩니다)",
             ),
-            "first_name": openapi.Schema(type=openapi.TYPE_STRING),
-            "last_name": openapi.Schema(type=openapi.TYPE_STRING),
+            "first_name": openapi.Schema(
+                type=openapi.TYPE_STRING, description="사용자 이름"
+            ),
+            "last_name": openapi.Schema(
+                type=openapi.TYPE_STRING, description="사용자 성"
+            ),
             "password": openapi.Schema(
-                type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_PASSWORD,
+                description="비밀번호 (보안 요구사항을 충족해야 합니다)",
             ),
-            "profile_image": openapi.Schema(type=openapi.TYPE_FILE),
-            "bio": openapi.Schema(type=openapi.TYPE_STRING),
+            "profile_image": openapi.Schema(
+                type=openapi.TYPE_FILE,
+                description="프로필 이미지 (선택 사항)",
+                format="binary",
+            ),
+            "bio": openapi.Schema(
+                type=openapi.TYPE_STRING, description="자기소개 (선택 사항)"
+            ),
         },
     ),
-    responses={201: UserSerializer, 400: "Bad Request"},
+    operation_description="""
+    새로운 사용자 계정을 생성합니다.
+    
+    이 API를 통해 회원가입을 할 수 있습니다. 필수 필드로는 이메일, 이름, 성, 비밀번호가 있으며,
+    선택적으로 프로필 이미지와 자기소개를 입력할 수 있습니다.
+    
+    프로필 이미지를 업로드하려면 multipart/form-data 형식을 사용해야 합니다.
+    """,
+    responses={
+        201: UserSerializer,
+        400: openapi.Response(
+            description="잘못된 요청",
+            examples={
+                "application/json": {
+                    "email": ["이 필드는 필수 항목입니다."],
+                    "password": [
+                        "이 비밀번호는 너무 짧습니다. 최소 8 문자를 포함해야 합니다."
+                    ],
+                }
+            },
+        ),
+    },
+    tags=["인증 및 사용자"],
 )
 class RegisterView(generics.CreateAPIView):
-    """View for user registration."""
+    """
+    사용자 등록 뷰
+
+    새로운 사용자 계정을 생성하는 API입니다. 회원가입 기능을 담당합니다.
+    """
 
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = UserSerializer
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
 
 
 class UserViewSet(viewsets.ModelViewSet):
