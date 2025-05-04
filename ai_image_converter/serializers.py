@@ -3,9 +3,9 @@ from .models import AIImage
 
 
 class AIImageSerializer(serializers.ModelSerializer):
-    """Serializer for AI image model"""
+    """Serializer for AI image conversions"""
 
-    user = serializers.StringRelatedField(read_only=True)
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = AIImage
@@ -17,6 +17,7 @@ class AIImageSerializer(serializers.ModelSerializer):
             "prompt",
             "model_used",
             "status",
+            "error_message",
             "created_at",
             "updated_at",
         ]
@@ -25,12 +26,15 @@ class AIImageSerializer(serializers.ModelSerializer):
             "user",
             "original_image",
             "converted_image",
-            "prompt",
-            "model_used",
             "status",
+            "error_message",
             "created_at",
             "updated_at",
         ]
+
+    def get_user(self, obj):
+        """Return username as user representation"""
+        return obj.user.username
 
 
 class AIImageCreateSerializer(serializers.ModelSerializer):

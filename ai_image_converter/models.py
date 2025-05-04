@@ -62,6 +62,11 @@ class AIImage(models.Model):
         default="pending",
         help_text="현재 변환 상태 (pending: 대기 중, processing: 처리 중, completed: 완료, failed: 실패)",
     )
+    error_message = models.TextField(
+        blank=True,
+        null=True,
+        help_text="ai 이미지 생성 실패 시 에러 메시지",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="변환 요청이 생성된 시간",

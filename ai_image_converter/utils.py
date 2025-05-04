@@ -62,7 +62,12 @@ def convert_to_ai_image(image_instance):
 
         return True
     except Exception as e:
-        logger.error(f"Error converting image: {str(e)}")
+        error_message = str(e)
+        logger.error(f"Error converting image: {error_message}")
+
+        # Save error message to database
         image_instance.status = "failed"
-        image_instance.save(update_fields=["status"])
+        image_instance.error_message = error_message
+        image_instance.save(update_fields=["status", "error_message"])
+
         return False
