@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     # Local apps
     "users",
     "gallery",
+    "ai_image_converter",
 ]
 
 MIDDLEWARE = [
@@ -178,6 +179,23 @@ SWAGGER_SETTINGS = {
     # "OPERATIONS_SORTER": "method",
     "VALIDATOR_URL": None,
     "DEEP_LINKING": True,
+    # File Upload settings
+    "DEFAULT_FILE_STORAGE": "multipart/form-data",
+    "DEFAULT_AUTO_SCHEMA_CLASS": "drf_yasg.inspectors.SwaggerAutoSchema",
+    "DEFAULT_FIELD_INSPECTORS": [
+        "drf_yasg.inspectors.CamelCaseJSONFilter",
+        "drf_yasg.inspectors.InlineSerializerInspector",
+        "drf_yasg.inspectors.RelatedFieldInspector",
+        "drf_yasg.inspectors.ChoiceFieldInspector",
+        "drf_yasg.inspectors.FileFieldInspector",
+        "drf_yasg.inspectors.DictFieldInspector",
+        "drf_yasg.inspectors.SimpleFieldInspector",
+        "drf_yasg.inspectors.StringDefaultFieldInspector",
+    ],
+    "DEFAULT_PAGINATOR_INSPECTORS": [
+        "drf_yasg.inspectors.DjangoRestResponsePagination",
+        "drf_yasg.inspectors.CoreAPICompatInspector",
+    ],
 }
 
 # CORS settings
