@@ -108,7 +108,8 @@ class AIImageViewSet(
                 in_=openapi.IN_FORM,
                 type=openapi.TYPE_STRING,
                 required=False,
-                description="변환 과정에서 사용할 추가 지시사항 (예: '스튜디오 지브리 스타일로 변환해주세요')",
+                default="Turn this photo into studio ghibli style art with vibrant colors, dream-like landscapes and that signature Miyazaki charm.",
+                description="변환 과정에서 사용할 추가 지시사항",
                 example="애니메이션 캐릭터처럼 만들어주세요",
             ),
             openapi.Parameter(
@@ -116,9 +117,9 @@ class AIImageViewSet(
                 in_=openapi.IN_FORM,
                 type=openapi.TYPE_STRING,
                 required=False,
-                default="default_model",
-                description="이미지 변환에 사용할 AI 모델 (사용 가능: default_model, anime_style, pixel_art, cartoon_realistic)",
-                example="anime_style",
+                default="gpt-image-1",
+                description="이미지 변환에 사용할 AI 모델 (현재는 사용하지 않고 gpt-image-1으로 하드코딩해둠)",
+                example="gpt-image-1",
             ),
         ],
         responses={
@@ -165,16 +166,19 @@ class AIImageViewSet(
             )
 
         # 크레딧을 차감하고 이미지 변환 처리 진행
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
+        create_serializer = self.get_serializer(data=request.data)
+        create_serializer.is_valid(raise_exception=True)
+        instance = self.perform_create(create_serializer)
+        headers = self.get_success_headers(create_serializer.data)
 
         # 크레딧 사용
         user.use_credit(amount=1, reason="AI 이미지 변환")
 
+        # 전체 필드를 포함한 응답 생성
+        response_serializer = AIImageSerializer(instance)
+
         return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
     def perform_create(self, serializer):
@@ -184,6 +188,8 @@ class AIImageViewSet(
         # Start conversion in background thread to avoid blocking the response
         thread = threading.Thread(target=convert_to_ai_image, args=(instance,))
         thread.start()
+
+        return instance
 
     @swagger_auto_schema(
         operation_description="""
