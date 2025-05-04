@@ -1,14 +1,14 @@
 from rest_framework import serializers
-from .models import CartoonImage
+from .models import AIImage
 
 
-class CartoonImageSerializer(serializers.ModelSerializer):
-    """Serializer for cartoon image model"""
+class AIImageSerializer(serializers.ModelSerializer):
+    """Serializer for AI image model"""
 
     user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
-        model = CartoonImage
+        model = AIImage
         fields = [
             "id",
             "user",
@@ -33,11 +33,11 @@ class CartoonImageSerializer(serializers.ModelSerializer):
         ]
 
 
-class CartoonImageCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating cartoon image conversions"""
+class AIImageCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating AI image conversions"""
 
     class Meta:
-        model = CartoonImage
+        model = AIImage
         fields = ["original_image", "prompt", "model_used"]
 
     def create(self, validated_data):

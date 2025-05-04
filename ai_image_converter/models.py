@@ -8,10 +8,10 @@ def get_image_upload_path(instance, filename):
     """Generate a unique file path for the uploaded image"""
     ext = filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
-    return os.path.join("cartoon_images", filename)
+    return os.path.join("ai_images", filename)
 
 
-class CartoonImage(models.Model):
+class AIImage(models.Model):
     """
     ai 이미지 변환을 저장하는 모델
 
@@ -28,7 +28,7 @@ class CartoonImage(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="cartoon_images",
+        related_name="ai_images",
         help_text="이미지를 업로드한 사용자",
     )
     original_image = models.ImageField(
@@ -72,4 +72,4 @@ class CartoonImage(models.Model):
     )
 
     def __str__(self):
-        return f"Cartoon image {self.id} by {self.user.username}"
+        return f"AI image {self.id} by {self.user.username}"

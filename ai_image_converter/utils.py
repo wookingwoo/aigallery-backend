@@ -8,15 +8,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def convert_to_cartoon(image_instance):
+def convert_to_ai_image(image_instance):
     """
-    Convert an image to cartoon style using AI.
+    Convert an image using AI.
 
     This is a placeholder function that will be replaced with actual AI implementation.
     For now, it simply returns the original image as a placeholder.
 
     Args:
-        image_instance: CartoonImage instance containing the original image
+        image_instance: AIImage instance containing the original image
 
     Returns:
         bool: True if conversion was successful, False otherwise
@@ -34,17 +34,17 @@ def convert_to_cartoon(image_instance):
 
         # PLACEHOLDER: Here is where the actual AI conversion would happen
         # In a real implementation, this would call an AI service or local model
-        # cartoon_img = ai_convert_image(img, image_instance.prompt, image_instance.model_used)
-        cartoon_img = img  # For now, just use the original image as placeholder
+        # ai_img = ai_convert_image(img, image_instance.prompt, image_instance.model_used)
+        ai_img = img  # For now, just use the original image as placeholder
 
         # Save the processed image
         buffer = io.BytesIO()
-        cartoon_img.save(buffer, format="PNG")
+        ai_img.save(buffer, format="PNG")
 
         # Create a unique filename for the converted image
         filename = os.path.basename(image_instance.original_image.name)
         name, ext = os.path.splitext(filename)
-        converted_filename = f"{name}_cartoon{ext}"
+        converted_filename = f"{name}_ai{ext}"
 
         # Save the converted image to the model
         image_instance.converted_image.save(

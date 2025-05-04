@@ -4,9 +4,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .models import CartoonImage
-from .serializers import CartoonImageSerializer, CartoonImageCreateSerializer
-from .utils import convert_to_cartoon
+from .models import AIImage
+from .serializers import AIImageSerializer, AIImageCreateSerializer
+from .utils import convert_to_ai_image
 from django.db.models import Q
 import threading
 from drf_yasg.utils import swagger_auto_schema
@@ -14,7 +14,7 @@ from drf_yasg import openapi
 from django.core.exceptions import ValidationError
 
 
-class CartoonImageViewSet(
+class AIImageViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,
@@ -22,9 +22,9 @@ class CartoonImageViewSet(
     viewsets.GenericViewSet,
 ):
     """
-    API 엔드포인트: 이미지를 만화 스타일로 변환하는 기능
+    API 엔드포인트: 이미지를 AI 기술로 변환하는 기능
 
-    사용자가 업로드한 이미지를 AI 기반 기술을 사용하여 만화 캐릭터 스타일로 변환합니다.
+    사용자가 업로드한 이미지를 AI 기반 기술을 사용하여 변환합니다.
     변환 과정은 비동기적으로 처리되며, 사용자는 변환 상태를 확인할 수 있습니다.
 
     이미지 변환 시 사용자의 크레딧이 1개 차감됩니다.
@@ -35,19 +35,17 @@ class CartoonImageViewSet(
 
     def get_queryset(self):
         """Return images created by the current user"""
-        return CartoonImage.objects.filter(user=self.request.user).order_by(
-            "-created_at"
-        )
+        return AIImage.objects.filter(user=self.request.user).order_by("-created_at")
 
     def get_serializer_class(self):
         """Return appropriate serializer class"""
         if self.action == "create":
-            return CartoonImageCreateSerializer
-        return CartoonImageSerializer
+            return AIImageCreateSerializer
+        return AIImageSerializer
 
     @swagger_auto_schema(
         operation_description="""
-        사용자의 모든 만화 변환 이미지 목록을 반환합니다.
+        사용자의 모든 AI 변환 이미지 목록을 반환합니다.
         
         결과는 생성 시간의 역순으로 정렬되어 최근에 생성된 이미지가 먼저 표시됩니다.
         각 이미지 항목에는 원본 이미지, 변환된 이미지, 상태, 사용된 모델 등의 정보가 포함됩니다.
@@ -55,16 +53,16 @@ class CartoonImageViewSet(
         responses={
             200: openapi.Response(
                 description="변환된 이미지 목록이 성공적으로 반환되었습니다",
-                schema=CartoonImageSerializer(many=True),
+                schema=AIImageSerializer(many=True),
                 examples={
                     "application/json": [
                         {
                             "id": 1,
                             "user": "username",
-                            "original_image": "/media/cartoon_images/original.jpg",
-                            "converted_image": "/media/cartoon_images/original_cartoon.jpg",
+                            "original_image": "/media/ai_images/original.jpg",
+                            "converted_image": "/media/ai_images/original_ai.jpg",
                             "prompt": "만화 스타일로 변환해주세요",
-                            "model_used": "cartoon_model_v1",
+                            "model_used": "anime_style",
                             "status": "completed",
                             "created_at": "2023-06-15T10:30:00Z",
                             "updated_at": "2023-06-15T10:35:00Z",
@@ -96,7 +94,7 @@ class CartoonImageViewSet(
         
         이미지 변환 시 사용자의 크레딧이 1개 차감됩니다. 크레딧이 부족한 경우 오류가 반환됩니다.
         """,
-        request_body=CartoonImageCreateSerializer,
+        request_body=AIImageCreateSerializer,
         manual_parameters=[
             openapi.Parameter(
                 name="original_image",
@@ -126,12 +124,12 @@ class CartoonImageViewSet(
         responses={
             201: openapi.Response(
                 description="이미지가 성공적으로 업로드되고 변환이 시작되었습니다",
-                schema=CartoonImageSerializer,
+                schema=AIImageSerializer,
                 examples={
                     "application/json": {
                         "id": 1,
                         "user": "username",
-                        "original_image": "/media/cartoon_images/original.jpg",
+                        "original_image": "/media/ai_images/original.jpg",
                         "converted_image": None,
                         "prompt": "애니메이션 캐릭터처럼 만들어주세요",
                         "model_used": "anime_style",
@@ -184,12 +182,12 @@ class CartoonImageViewSet(
         instance = serializer.save(user=self.request.user)
 
         # Start conversion in background thread to avoid blocking the response
-        thread = threading.Thread(target=convert_to_cartoon, args=(instance,))
+        thread = threading.Thread(target=convert_to_ai_image, args=(instance,))
         thread.start()
 
     @swagger_auto_schema(
         operation_description="""
-        지정된 ID의 만화 이미지 세부 정보를 조회합니다.
+        지정된 ID의 AI 이미지 세부 정보를 조회합니다.
         
         변환 상태, 원본 및 변환된 이미지 URL, 사용자가 제공한 프롬프트 등의 정보를 포함합니다.
         사용자는 자신이 생성한 이미지만 조회할 수 있습니다.
@@ -197,13 +195,13 @@ class CartoonImageViewSet(
         responses={
             200: openapi.Response(
                 description="이미지 세부 정보 조회 성공",
-                schema=CartoonImageSerializer(),
+                schema=AIImageSerializer(),
                 examples={
                     "application/json": {
                         "id": 1,
                         "user": "username",
-                        "original_image": "/media/cartoon_images/original.jpg",
-                        "converted_image": "/media/cartoon_images/original_cartoon.jpg",
+                        "original_image": "/media/ai_images/original.jpg",
+                        "converted_image": "/media/ai_images/original_ai.jpg",
                         "prompt": "애니메이션 캐릭터처럼 만들어주세요",
                         "model_used": "anime_style",
                         "status": "completed",
@@ -287,7 +285,7 @@ class CartoonImageViewSet(
     )
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
-        """Regenerate the cartoon image"""
+        """Regenerate the AI image"""
         user = request.user
 
         # 크레딧 확인
@@ -300,13 +298,13 @@ class CartoonImageViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        image = get_object_or_404(CartoonImage, id=pk, user=user)
+        image = get_object_or_404(AIImage, id=pk, user=user)
 
         # 크레딧 사용
         user.use_credit(amount=1, reason="AI 이미지 재변환")
 
         # Start conversion in background thread
-        thread = threading.Thread(target=convert_to_cartoon, args=(image,))
+        thread = threading.Thread(target=convert_to_ai_image, args=(image,))
         thread.start()
 
         return Response(
@@ -316,11 +314,9 @@ class CartoonImageViewSet(
 
 def process_pending_images():
     """Process any pending images - can be called by a scheduled task"""
-    pending_images = CartoonImage.objects.filter(
-        Q(status="pending") | Q(status="failed")
-    )
+    pending_images = AIImage.objects.filter(Q(status="pending") | Q(status="failed"))
 
     for image in pending_images:
         # Start conversion in background thread
-        thread = threading.Thread(target=convert_to_cartoon, args=(image,))
+        thread = threading.Thread(target=convert_to_ai_image, args=(image,))
         thread.start()
