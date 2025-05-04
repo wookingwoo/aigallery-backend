@@ -731,12 +731,14 @@ class CreditChargeView(APIView):
 
     사용자가 크레딧을 충전할 수 있는 API입니다.
     실제 결제 처리는 구현되어 있지 않으며, 테스트 목적으로 즉시 크레딧이 추가됩니다.
+
+    현재 임시적으로 사용이 중단되었습니다.
     """
 
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_description="크레딧을 충전합니다. 실제 결제 처리는 구현되어 있지 않으며, 테스트 목적으로 즉시 크레딧이 추가됩니다.",
+        operation_description="크레딧을 충전합니다. 실제 결제 처리는 구현되어 있지 않으며, 테스트 목적으로 즉시 크레딧이 추가됩니다. (현재 임시적으로 사용 중지됨)",
         request_body=CreditChargeSerializer,
         responses={
             200: openapi.Response(
@@ -766,24 +768,20 @@ class CreditChargeView(APIView):
             ),
             400: "잘못된 요청",
             401: "인증되지 않은 사용자",
+            503: openapi.Response(
+                description="서비스 일시 중지",
+                examples={
+                    "application/json": {
+                        "detail": "이 기능은 현재 일시적으로 사용할 수 없습니다."
+                    }
+                },
+            ),
         },
         tags=["크레딧 관리"],
     )
     def post(self, request):
-        """크레딧 충전 처리"""
-        serializer = CreditChargeSerializer(
-            data=request.data, context={"request": request}
+        """크레딧 충전 처리 (임시 중단됨)"""
+        return Response(
+            {"detail": "이 기능은 현재 일시적으로 사용할 수 없습니다."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-
-        if serializer.is_valid():
-            result = serializer.save()
-
-            return Response(
-                {
-                    "message": "크레딧이 성공적으로 충전되었습니다.",
-                    "amount": result["amount"],
-                    "total_credits": request.user.credits,
-                }
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
